@@ -1,0 +1,6 @@
+flask
+sesamutils
+urllib3
+numpy
+jsonpath_ng
+requests

@@ -4,7 +4,6 @@ import requests
 import os
 import sys
 from sesamutils import VariablesConfig, sesam_logger
-import pandas as pd
 import urllib3
 from itertools import groupby
 from operator import itemgetter
@@ -13,7 +12,7 @@ import urllib.request, json
 from jsonpath_ng import jsonpath, parse
 import hashlib
 
-
+#RUN apk add --no-cache cmake gcc libxml2 automake g++ subversion python3-dev libxml2-dev libxslt-dev lapack-dev gfortran
 
 app =Flask(__name__)
 logger = sesam_logger("Steve the logger", app=app)
