@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+
+    <title>Collapsible Tree Example</title>
+
+    <style>
+
+	.node circle {
+	  fill: #fff;
+	  stroke: steelblue;
+	  stroke-width: 3px;
+	}
+
+	.node text { font: 12px sans-serif; }
+
+	.link {
+	  fill: none;
+	  stroke: #ccc;
+	  stroke-width: 2px;
+	}
+
+    </style>
+
+  </head>
+
+  <body>
+
+<!-- load the d3.js library -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.17/d3.min.js"></script>
+
+    <script>
+      var tree_data = {{ tree_data | tojson }}
+
+
+      // ************** Generate the tree diagram	 *****************
+      var margin = {top: 20, right: 120, bottom: 20, left: 120},
+      	width = 960 - margin.right - margin.left,
+      	height = 500 - margin.top - margin.bottom;
+
+      var selected = {};
+
+      var i = 0;
+
+
+      var tree = d3.layout.tree()
+      	.size([height, width]);
+
+      var diagonal = d3.svg.diagonal()
+      	.projection(function(d) { return [d.y, d.x]; });
+
+      var svg = d3.select("body").append("svg")
+      	.attr("width", width + margin.right + margin.left)
+      	.attr("height", height + margin.top + margin.bottom)
+        .append("g")
+      	.attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+      // load the external data
+
+
+        root = tree_data[0];
+        update(root);
+        function click(d) {
+        //reset all nodes color
+        d3.selectAll("circle").style("fill", "white");//reset all node colors
+        d3.selectAll("path").style("stroke", "#c3c3c3");//reset the color for all links
+        while (d.parent) {
+          d3.selectAll("#node"+d.id).style("fill", "red");//color the node
+          if (d.parent != "null")
+            d3.selectAll("#link"+d.parent.id + "-" + d.id).style("stroke", "red");//color the path
+          d = d.parent;
+        }
+      }
+
+
+      function update(source) {
+
+        // Compute the new tree layout.
+        var nodes = tree.nodes(root).reverse(),
+      	  links = tree.links(nodes);
+
+        // Normalize for fixed-depth.
+        nodes.forEach(function(d) { d.y = d.depth * 180; });
+
+        // Declare the nodes…
+        var node = svg.selectAll("g.node")
+      	  .data(nodes, function(d) { return d.id || (d.id = ++i); });
+
+        // Enter the nodes.
+        var nodeEnter = node.enter().append("g")
+      	  .attr("class", "node")
+      	  .attr("transform", function(d) {
+      		  return "translate(" + d.y + "," + d.x + ")"; });
+
+        nodeEnter.append("circle")
+      	  .attr("r", 10)
+      	  .style("fill", "#fff")
+          .attr("id", function(d){return "node" + d.id;});
+
+        nodeEnter.append("text")
+      	  .attr("x", function(d) {
+      		  return d.children || d._children ? -13 : 13; })
+      	  .attr("dy", ".35em")
+      	  .attr("text-anchor", function(d) {
+      		  return d.children || d._children ? "end" : "start"; })
+      	  .text(function(d) { return d.name; })
+      	  .style("fill-opacity", 1);
+
+        // Declare the links…
+        var link = svg.selectAll("path.link")
+      	  .data(links, function(d) { return d.target.id; });
+
+        // Enter the links.
+        link.enter().insert("path", "g")
+      	  .attr("class", "link")
+      	  .attr("d", diagonal)
+          .attr("id",function(d){ return ("link" + d.source.id + "-" + d.target.id)});
+
+      };
+
+      var targetElements = d3.selectAll("circle");
+      var sel;
+      targetElements.on("mouseover", function() {
+        d3.select(this)
+          .style("fill", "steelblue");
+      }).on("mouseout", function(d) {
+        sel = d.this;
+        if (!(d.name in selected))
+          d3.select(this)
+            .style("fill", "#fff");
+      }).on("click", function(d) {
+        sel = d.this;
+        if (d.name in selected){
+          d3.select(sel)
+          .style("fill", "#fff");
+          delete selected[d.name]
+        }
+
+        else if (!(d.name in selected)){
+          var tmp = [];
+          var node = d.name;
+
+          while (d.parent) {
+            if (d.parent != "null")
+              tmp.push(d.name);
+            d = d.parent;
+            }
+          d3.select(sel)
+          .style("fill", "steelblue");
+          selected[node] = tmp;
+        }
+      });
+
+      $(document).ready(function() {
+          $('#hashBtn').bind('click',function() {
+            console.log(selected)
+
+          $.ajax({
+            type: "POST",
+            contentType: "application/json; charset=utf-8",
+            url: "/hash",
+            dataType: "json",
+            success: function(){},
+            data: JSON.stringify(selected),
+            success: function(response){
+              document.write(response);
+            }
+
+          });
+
+          function myFunction(item) {
+            document.getElementById("vals").innerHTML += item + "<br>";
+          }
+
+          Object.keys(selected).forEach(myFunction);
+
+        });
+  });
+
+
+
+    </script>
+
+
+    <input type="button" value="#" id="hashBtn" name="hashBtn" onClick = "this.style.visibility= 'hidden';"/>
+
+    <h3>Hashed values</h3>
+    <p id="vals"></p>
+
+  </body>
+</html>
