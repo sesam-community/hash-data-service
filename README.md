@@ -1,4 +1,4 @@
-# Test data service
+# Hash data service
 A connector to look at JSON datasets and choose wich columns to hash.
 
 ## Prerequisites
