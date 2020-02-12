@@ -37,8 +37,8 @@
 
       // ************** Generate the tree diagram	 *****************
       var margin = {top: 20, right: 120, bottom: 20, left: 120},
-      	width = 960 - margin.right - margin.left,
-      	height = 500 - margin.top - margin.bottom;
+      	width = 1500 - margin.right - margin.left,
+      	height = 750 - margin.top - margin.bottom;
 
       var selected = {};
 
@@ -156,11 +156,13 @@
       $(document).ready(function() {
           $('#hashBtn').bind('click',function() {
             console.log(selected)
-
+            var url = document.location.protocol + "//" + document.location.hostname + "/api/systems/hash-data-service-datanorge/proxy";
+            var api = url + "/hash";
+            console.log(api)
           $.ajax({
             type: "POST",
             contentType: "application/json; charset=utf-8",
-            url: "/hash",
+            url: api,
             dataType: "json",
             success: function(){},
             data: JSON.stringify(selected),

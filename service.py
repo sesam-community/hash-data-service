@@ -11,14 +11,26 @@ import numpy as np
 import urllib.request, json
 from jsonpath_ng import jsonpath, parse
 import hashlib
+from ast import literal_eval
 
-#RUN apk add --no-cache cmake gcc libxml2 automake g++ subversion python3-dev libxml2-dev libxslt-dev lapack-dev gfortran
+
 
 app =Flask(__name__)
 logger = sesam_logger("Steve the logger", app=app)
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-#required_env_vars = ['jwt','base_url']
+
+required_env_vars = ['jwt', 'base_url','system_id']
+
+
+
+def get_var(var):
+    envvar = None
+    if var.upper() in os.environ:
+        envvar = os.environ[var.upper()]
+
+    return envvar
+
 
 def get_data(path):
     with urllib.request.urlopen(path) as url:
@@ -65,9 +77,14 @@ def hash_col(col):
 
     return  h.hexdigest()
 
-def hash_marked_values(hashed_values):
-    global data
-    print(hashed_values)
+def hash_marked_values(hashed_values,path):
+
+    hashed_values = literal_eval("{}".format(hashed_values))
+
+    with urllib.request.urlopen(path) as url:
+        data = json.loads(url.read().decode())
+
+
     for key,values in hashed_values.items():
         if len(values) == 1:
             data[key] = hash_col(data[key])
@@ -83,43 +100,64 @@ def hash_marked_values(hashed_values):
                 except:
                     continue
 
-    #Returs data to Sesam
-    print(data)
     return data
 
-@app.route('/file/<path:path>')
+@app.route('/file/<path:path>', methods=['GET'])
 def index(path):
+    logger.info(path)
+    path = path.replace("https:/", "https://")
+    path = path.replace("https:///", "https://")
+    path = path.replace("http:/", "http://")
+    path = path.replace("http:///", "http://")
+    config = VariablesConfig(required_env_vars)
+    hashed_values = get_var('hashed_values')
 
-    global data
 
-    url = path
-    data = get_data(path)
-    unique_tree = sorted(np.unique(np.array([['root'] + x.split('_') for x in list(flatten_json(data).keys())])),key=len)
-    output = [build_dict(unique_tree)]
+    if hashed_values:
+        ret = hash_marked_values(hashed_values,path)
+
+        return jsonify(ret)
+
+    else:
+
+        if hashed_values == None:
+            logger.info(
+            """
+            __________
+            |         #
+            | Go to -->  {}/systems/{}/proxy/file/{}
+            |_________#
+            """.format(config.base_url,config.system_id,path))
 
 
-    return render_template('index.html',tree_data=output)
+        with urllib.request.urlopen(path) as url:
+            data = json.loads(url.read().decode())
 
-@app.route('/hash/<hashedvalues>', methods=['GET'])
-def hasheddata(hashedvalues):
 
-    jsonrespons = hash_marked_values(hashedvalues)
+        unique_tree = sorted(np.unique(np.array([['root'] + x.split('_') for x in list(flatten_json(data).keys())])),key=len)
+        output = [build_dict(unique_tree)]
 
-    requests.put(f"{config.base_url}/pipes/{pipe_id}/config?force=True", headers=header, data=json.dumps(new_source), verify=False)
-
-    return data
-
+        return render_template('index.html',tree_data=output)
 
 
 @app.route('/hash', methods=['POST'])
 def hash():
-
     hashed_values = request.get_json()
-    hash_marked_values(hashed_values)
 
-    #POST to sesam API with hashed values as some data
+    config = VariablesConfig(required_env_vars)
+    header = {'Authorization': f'Bearer {config.jwt}', "content_type": "application/json"}
 
-    return 'Success!'
+    sys_conf = requests.get(f"{config.base_url}/systems/{config.system_id}/config", headers=header, verify=False)
+    sys_conf = json.loads(sys_conf.content.decode('utf-8-sig'))
+    sys_conf['docker']['environment'].update({"HASHED_VALUES": hashed_values})
+
+    check_response = requests.put(f"{config.base_url}/systems/{config.system_id}/config?force=True", headers=header, data=json.dumps(sys_conf), verify=False)
+    if not check_response.ok:
+        return_msg = f"Unexpected error : {check_response.content}", 500
+    else:
+        return_msg = f"The system with id : {config.system_id} has been updated with hashed values"
+
+    return return_msg
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True, threaded=True)
